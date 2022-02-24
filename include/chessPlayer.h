@@ -15,7 +15,7 @@ class chessPlayer{
             this->playerColor = playerColor;
         }
 
-    virtual void decideMove(gameState* state, action* Move, int maxDepth=-1)=0;
+    virtual void decideMove(gameState* state, action* Move, int maxDepth=3)=0;
 };
 
 #endif // CHESSPLAYER_H

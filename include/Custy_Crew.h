@@ -8,14 +8,14 @@ public:
     Custy_Crew(Color playerColor = White);
     void decideMove(gameState* state, action* Move, int maxDepth);
     
-    //minimax functions
+    int countEvals = 0;
+    void MiniMaxSearch(gameState state, action* Move, int depth);
+    double Mini(gameState state, action* bestMove, double alpha, double beta, int depth);
+    double Max(gameState state, action* bestMove, double alpha, double beta, int depth);
 
-    //min
-    //max
-    //minimax or something idk
 
     //evaluation function
-    double evaluateState(gameState* state);
+    double evaluateState(gameState state);
 
     //Peice-Square Tables
     double KingPST[8][8] = {
