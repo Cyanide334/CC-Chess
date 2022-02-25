@@ -11,65 +11,100 @@ Custy_Crew::Custy_Crew(Color playerColor) :chessPlayer("Auto Player Name", playe
 }
 
 
-void Custy_Crew::MiniMaxSearch(gameState state, action* Move, int depth) {
-    Custy_Crew::Max(state, Move, INT_MIN, INT_MAX, depth);
+void Custy_Crew::MiniMaxSearch(gameState state, action* bestMove, int depth) {
+    action Move;
+    Move.fromCol = Move.fromRow = Move.toCol = Move.toRow = 0;
+    Custy_Crew::Max(state, Move, bestMove, INT_MIN, INT_MAX, depth);
     return;
 }
 
-double Custy_Crew::Mini(gameState state, action* bestMove, double alpha, double beta, int depth) {
-    if (depth == 0 ) {
-        return Custy_Crew::evaluateState(state);
-    }
-    else if (state.Actions.getActionCount() == 0) {
+double Custy_Crew::Mini(gameState state, action Move,action* bestMove, double alpha, double beta, int depth) {
+    state.applyMove(Move);
+    if (state.Actions.getActionCount() == 0) {
         //do stalemates, white loss and black loss constitute no evaluation seedha inf or -inf eval?
+        if (state.kingUnderThreat(White))
+            return -100;
+        else if (state.kingUnderThreat(Black))
+            return 100;
+        else
+            return -50;
+    }
+
+    else if (depth == 0) {
         return Custy_Crew::evaluateState(state);
     }
     else {
         action minMove;
-        int moves = state.Actions.getActionCount();
+        minMove.fromRow = minMove.fromCol = minMove.toRow = minMove.toCol = 0;
+        int moves = state.Actions.getActionCount();      
         for (int i = 0; i < moves; i++) {
             action move;
             state.Actions.getAction(i, &move);
-            state.applyMove(move);
-            double eval = Custy_Crew::Max(state, nullptr,alpha, beta, depth - 1);
-            if (alpha >= eval) {
-                break;
-            }
+            double eval = Custy_Crew::Max(state,move, bestMove,alpha, beta, depth - 1);
             if (eval < beta) {
                 beta = eval;
-                minMove = move;              
+                //minMove = move; 
+                minMove.fromCol = move.fromCol;
+                minMove.fromRow = move.fromRow;
+                minMove.toCol = move.toCol;
+                minMove.toRow = move.toRow;
+                if (eval <= alpha) {
+                    break;
+                }
             }
+           
         }
-        bestMove = &minMove; //THIS WONT WORK FFS
+        bestMove->fromCol = minMove.fromCol;
+        bestMove->fromRow = minMove.fromRow;
+        bestMove->toCol = minMove.toCol;
+        bestMove->toRow = minMove.toRow;
         return beta;
     }
 }
 
-double Custy_Crew::Max(gameState state, action* bestMove, double alpha, double beta, int depth) {
-    if (depth == 0) {
-        return Custy_Crew::evaluateState(state);
+double Custy_Crew::Max(gameState state, action Move, action* bestMove, double alpha, double beta, int depth) {
+    if (!(Move.fromCol == Move.fromRow == Move.toCol == Move.toRow)) {
+        state.applyMove(Move);
     }
-    else if (state.Actions.getActionCount() == 0) {
+    if (state.Actions.getActionCount() == 0) {
         //do stalemates, white loss and black loss constitute no evaluation seedha inf or -inf eval?
+        if (state.kingUnderThreat(White))
+            return -100;
+        else if (state.kingUnderThreat(Black))
+            return 100;
+        else
+            return -50;
+    }
+    
+    else if (depth == 0) {
         return Custy_Crew::evaluateState(state);
     }
     else {
         action maxMove;
+        maxMove.fromRow = maxMove.fromCol = maxMove.toRow = maxMove.toCol = 0;
         int moves = state.Actions.getActionCount();
         for (int i = 0; i < moves; i++) {
             action move;
             state.Actions.getAction(i, &move);
-            state.applyMove(move);
-            double eval = Custy_Crew::Max(state, nullptr, alpha, beta, depth - 1);
-            if (beta <= eval) {
-                break;
-            }
+            double eval = Custy_Crew::Mini(state, move, bestMove, alpha, beta, depth - 1);
+            
             if (eval > alpha) {
                 alpha = eval;
-                maxMove = move;
+                //maxMove = move;
+                maxMove.fromCol = move.fromCol;
+                maxMove.fromRow = move.fromRow;
+                maxMove.toCol = move.toCol;
+                maxMove.toRow = move.toRow;
+                if (eval >= beta) {
+                    break;
+                }
             }
         }
-        bestMove = &maxMove; //I KNOW THIS WONT WORK BUT FUCK THIS SHIT
+        bestMove->fromCol = maxMove.fromCol;
+        bestMove->fromRow = maxMove.fromRow;
+        bestMove->toCol = maxMove.toCol;
+        bestMove->toRow = maxMove.toRow;
+
         return alpha;
     }
 }
@@ -77,7 +112,7 @@ double Custy_Crew::Max(gameState state, action* bestMove, double alpha, double b
 void Custy_Crew::decideMove(gameState* state, action* Move, int maxDepth) {
 
     Custy_Crew::MiniMaxSearch(*state, Move, maxDepth);
-    cout << "Count Evals"<<countEvals << endl;
+    cout << "Count Evals: "<<countEvals << endl;
     return;
 }
 
@@ -94,13 +129,11 @@ double Custy_Crew::evaluateState(gameState state) {
     Location values are given in .h file, as PSTs (peice-square tables) 
     with white at base (row index = 7 of table)
     */
-    int whiteTop; //to check weather the white side starts at top of board or is at base of board in layout
+    bool whiteTop = false; //to check weather the white side starts at top of board or is at base of board in layout
     if (state.Board.whiteHome == 0) {
         whiteTop = true; //white at top
     }
-    else {
-        whiteTop = false; //white at base
-    }
+    
     for (int i = 0; i < 8; i++) {
         for (int j = 0; j < 8; j++) {
             int peice = state.Board.board[i][j];
@@ -118,9 +151,9 @@ double Custy_Crew::evaluateState(gameState state) {
             case -1:
                 peiceValue = -1;
                 if(whiteTop)
-                    locationValue = PawnPST[i][j];
+                    locationValue = -PawnPST[i][j];
                 else
-                    locationValue = PawnPST[7 - i][j];
+                    locationValue = -PawnPST[7 - i][j];
                 break;
             case 2:
                 peiceValue = 3.2;
@@ -132,9 +165,9 @@ double Custy_Crew::evaluateState(gameState state) {
             case -2:
                 peiceValue = -3.2;
                 if (whiteTop)
-                    locationValue = KnightPST[i][j];
+                    locationValue = -KnightPST[i][j];
                 else
-                    locationValue = KnightPST[7 - i][j];
+                    locationValue = -KnightPST[7 - i][j];
                 break;
             case 3:
                 peiceValue = 3.3;
@@ -146,9 +179,9 @@ double Custy_Crew::evaluateState(gameState state) {
             case -3:
                 peiceValue = -3.3;
                 if (whiteTop)
-                    locationValue = BishopPST[i][j];
+                    locationValue = -BishopPST[i][j];
                 else
-                    locationValue = BishopPST[7 - i][j];
+                    locationValue = -BishopPST[7 - i][j];
                 break;
             case 4:
                 peiceValue = 5;
@@ -160,9 +193,9 @@ double Custy_Crew::evaluateState(gameState state) {
             case -4:
                 peiceValue = -5;
                 if (whiteTop)
-                    locationValue = RookPST[i][j];
+                    locationValue = -RookPST[i][j];
                 else
-                    locationValue = RookPST[7 - i][j];
+                    locationValue = -RookPST[7 - i][j];
                 break;
             case 5:
                 peiceValue = 9;
@@ -174,9 +207,9 @@ double Custy_Crew::evaluateState(gameState state) {
             case -5:
                 peiceValue = -9;
                 if (whiteTop)
-                    locationValue = QueenPST[i][j];
+                    locationValue = -QueenPST[i][j];
                 else
-                    locationValue = QueenPST[7 - i][j];
+                    locationValue = -QueenPST[7 - i][j];
                 break;
             case 6:
                 peiceValue = 0;
@@ -188,9 +221,9 @@ double Custy_Crew::evaluateState(gameState state) {
             case -6:
                 peiceValue = 0;
                 if (whiteTop)
-                    locationValue = KingPST[i][j];
+                    locationValue = -KingPST[i][j];
                 else
-                    locationValue = KingPST[7 - i][j];
+                    locationValue = -KingPST[7 - i][j];
                 break;
             default:
                 peiceValue = 0;
