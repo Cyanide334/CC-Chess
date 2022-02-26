@@ -14,7 +14,7 @@ Custy_Crew::Custy_Crew(Color playerColor) :chessPlayer("Auto Player Name", playe
 void Custy_Crew::MiniMaxSearch(gameState state, action* bestMove, int depth) {
     action Move;
     Move.fromCol = Move.fromRow = Move.toCol = Move.toRow = 0;
-    Custy_Crew::Max(state, Move, bestMove, INT_MIN, INT_MAX, depth);
+    cout << Custy_Crew::Max(state, Move, bestMove, INT_MIN, INT_MAX, depth) << endl;
     return;
 }
 
@@ -33,24 +33,40 @@ double Custy_Crew::Mini(gameState state, action Move,action* bestMove, double al
     else if (depth == 0) {
         return Custy_Crew::evaluateState(state);
     }
+
     else {
         action minMove;
         minMove.fromRow = minMove.fromCol = minMove.toRow = minMove.toCol = 0;
-        int moves = state.Actions.getActionCount();      
+        int moves = state.Actions.getActionCount();     
+        double minEval = INT_MAX;
         for (int i = 0; i < moves; i++) {
             action move;
             state.Actions.getAction(i, &move);
             double eval = Custy_Crew::Max(state,move, bestMove,alpha, beta, depth - 1);
-            if (eval < beta) {
-                beta = eval;
-                //minMove = move; 
+            if (minEval > eval) {
+                minEval = eval;
+                //minMove = move;
                 minMove.fromCol = move.fromCol;
                 minMove.fromRow = move.fromRow;
                 minMove.toCol = move.toCol;
                 minMove.toRow = move.toRow;
-                if (eval <= alpha) {
-                    break;
+            }
+            if (minEval == eval) {
+                //check which move is better in case of tie by seeing peice captures for now i.e. MVV_LVA
+                double a = evaluateMove(state, move);
+                double b = evaluateMove(state, minMove);
+                if (a < b) {
+                    minMove.fromCol = move.fromCol;
+                    minMove.fromRow = move.fromRow;
+                    minMove.toCol = move.toCol;
+                    minMove.toRow = move.toRow;
                 }
+            }
+            if (minEval < beta) {
+                beta = minEval;  
+            }
+            if (alpha >= beta) {
+                break;
             }
            
         }
@@ -63,11 +79,11 @@ double Custy_Crew::Mini(gameState state, action Move,action* bestMove, double al
 }
 
 double Custy_Crew::Max(gameState state, action Move, action* bestMove, double alpha, double beta, int depth) {
-    if (!(Move.fromCol == Move.fromRow == Move.toCol == Move.toRow)) {
+    if (!(Move.fromCol == Move.fromRow == Move.toCol == Move.toRow)) { //this is a gaurd condition so it doesnt apply move the first time its called.
         state.applyMove(Move);
     }
     if (state.Actions.getActionCount() == 0) {
-        //do stalemates, white loss and black loss constitute no evaluation seedha inf or -inf eval?
+        //do stalemates, white loss and black loss constitute no evaluation seedha inf or -inf eval? Probably so hell yea.
         if (state.kingUnderThreat(White))
             return -100;
         else if (state.kingUnderThreat(Black))
@@ -83,29 +99,42 @@ double Custy_Crew::Max(gameState state, action Move, action* bestMove, double al
         action maxMove;
         maxMove.fromRow = maxMove.fromCol = maxMove.toRow = maxMove.toCol = 0;
         int moves = state.Actions.getActionCount();
+        double maxEval = INT_MIN;
         for (int i = 0; i < moves; i++) {
             action move;
             state.Actions.getAction(i, &move);
             double eval = Custy_Crew::Mini(state, move, bestMove, alpha, beta, depth - 1);
-            
-            if (eval > alpha) {
-                alpha = eval;
+            if (maxEval < eval) {
+                maxEval = eval;
                 //maxMove = move;
                 maxMove.fromCol = move.fromCol;
                 maxMove.fromRow = move.fromRow;
                 maxMove.toCol = move.toCol;
                 maxMove.toRow = move.toRow;
-                if (eval >= beta) {
-                    break;
+            }
+            if (maxEval == eval) {
+                //check which move is better in case of tie by seeing peice captures for now
+                double a = evaluateMove(state, move);
+                double b = evaluateMove(state, maxMove);
+                if (a > b) {
+                    maxMove.fromCol = move.fromCol;
+                    maxMove.fromRow = move.fromRow;
+                    maxMove.toCol = move.toCol;
+                    maxMove.toRow = move.toRow;
                 }
+            }
+            if (maxEval > alpha) {
+                alpha = maxEval;     
+            }
+            if (alpha >= beta) {
+                break;
             }
         }
         bestMove->fromCol = maxMove.fromCol;
         bestMove->fromRow = maxMove.fromRow;
         bestMove->toCol = maxMove.toCol;
         bestMove->toRow = maxMove.toRow;
-
-        return alpha;
+        return maxEval;
     }
 }
 
@@ -116,19 +145,101 @@ void Custy_Crew::decideMove(gameState* state, action* Move, int maxDepth) {
     return;
 }
 
+double Custy_Crew::evaluateMove(gameState state, action Move) {
+
+    //eval = captureValue[Victim][Attacker]
+    double captureValue[7][7] = {
+        {   0,   0,   0,   0,   0,   0,   0},
+        {   0, 1.5, 1.4, 1.3, 1.2, 1.1,   1},
+        {   0, 2.5, 2.4, 2.3, 2.2, 2.1,   2},
+        {   0, 3.5, 3.4, 3.3, 3.2, 3.1,   3},
+        {   0, 4.5, 4.4, 4.3, 4.2, 4.1,   4},
+        {   0, 5.5, 5.4, 5.3, 5.2, 5.1,   5},
+        {   0,   0,   0,   0,   0,   0,   0},
+    };
+
+    int Attacker = abs(state.Board.board[Move.fromRow][Move.fromCol]);
+    int Victim = abs(state.Board.board[Move.toRow][Move.toCol]);
+
+    return captureValue[Victim][Attacker];
+}
+
 double Custy_Crew::evaluateState(gameState state) {
     double res = 0; //for now it is the sum of all peice+location values
-    /*
-    Peice values are assigned as:
-        Pawn   =    1.00 point
-        Knight =    3.20 points
-        Bishop =    3.30 points
-        Rook   =    5.00 points
-        Queen  =    9.00 points
+    
+    
+    //Peice values are assigned as:
+    double
+        PawnValue = 1.00,
+        KnightValue = 3.20,
+        BishopValue = 3.30,
+        RookValue = 5.00,
+        QueenValue = 9.00,
+        KingValue = 0.00;
 
-    Location values are given in .h file, as PSTs (peice-square tables) 
-    with white at base (row index = 7 of table)
-    */
+
+    //Peice-Square Tables with white at base (row index = 7 of table)
+    double KingPST[8][8] = {
+       {-3, -4, -4, -5, -5, -4, -4, -3},
+       {-3, -4, -4, -5, -5, -4, -4, -3},
+       {-3, -4, -4, -5, -5, -4, -4, -3},
+       {-3, -4, -4, -5, -5, -4, -4, -3},
+       {-2, -3, -3, -4, -4, -3, -3, -2},
+       {-1, -2, -2, -2, -2, -2, -2, -1},
+       { 2,  2,  0,  0,  0,  0,  2,  2},
+       { 2,  3,  1,  0,  0,  1,  3,  2}
+    };
+    double QueenPST[8][8] = {
+        {  -2, -1,  -1, -0.5, -0.5,  -1, -1,   -2},
+        {  -1,   0,   0,    0,    0,   0,  0,   -1},
+        {  -1,   0, 0.5,  0.5,  0.5, 0.5,  0,   -1},
+        {-0.5,   0, 0.5,  0.5,  0.5, 0.5,  0, -0.5},
+        {   0,   0, 0.5,  0.5,  0.5, 0.5,  0, -0.5},
+        {  -1, 0.5, 0.5,  0.5,  0.5, 0.5,  0,   -1},
+        {  -1,   0, 0.5,    0,    0,   0,  0,   -1},
+        {  -2,  -1,  -1, -0.5, -0.5,  -1, -1,   -2}
+    };
+    double RookPST[8][8] = {
+       {   0, 0, 0,   0,   0, 0, 0,    0},
+       { 0.5, 1, 1,   1,   1, 1, 1,  0.5},
+       {-0.5, 0, 0,   0,   0, 0, 0, -0.5},
+       {-0.5, 0, 0,   0,   0, 0, 0, -0.5},
+       {-0.5, 0, 0,   0,   0, 0, 0, -0.5},
+       {-0.5, 0, 0,   0,   0, 0, 0, -0.5},
+       {-0.5, 0, 0,   0,   0, 0, 0, -0.5},
+       {   0, 0, 0, 0.5, 0.5, 0, 0,    0}
+    };
+    double BishopPST[8][8] = {
+        {-2,  -1,  -1, -1, -1,  -1,  -1, -2},
+        {-1,   0,   0,  0,  0,   0,   0, -1},
+        {-1,   0, 0.5,  1,  1, 0.5,   0, -1},
+        {-1, 0.5, 0.5,  1,  1, 0.5, 0.5, -1},
+        {-1,   0,   1,  1,  1,   1,   0, -1},
+        {-1,   1,   1,  1,  1,   1,   1, -1},
+        {-1, 0.5,   0,  0,  0,   0, 0.5, -1},
+        {-2,  -1,  -1, -1, -1,  -1,  -1, -2}
+    };
+    double KnightPST[8][8] = {
+        {-5,  -3,  -2,  -2,  -2,  -2,  -3, -5},
+        {-4,  -2,   0,   0,   0,   0,  -2, -4},
+        {-3,   0,   1, 1.5, 1.5,   1,   0, -3},
+        {-3, 0.5, 1.5,   2,   2, 1.5, 0.5, -3},
+        {-3,   0, 1.5,   2,   2, 1.5,   0, -3},
+        {-3, 0.5,   1, 1.5, 1.5,   1, 0.5, -3},
+        {-4,  -2,   0, 0.5, 0.5,   0,  -2, -4},
+        {-5,  -3,  -2,  -2,  -2,  -2,  -3, -5}
+    };
+    double PawnPST[8][8] = {
+        {  0,    0,  0,   0,   0,  0,    0,   0},
+        {  5,    5,  5,   5,   5,  5,    5,   5},
+        {  1,    1,  2,   3,   3,  2,    1,   1},
+        {0.5,  0.5,  1, 2.5, 2.5,  1,  0.5, 0.5},
+        {  0,    0,  0,2.25,2.25,  0,    0,   0},
+        {0.5, -0.5, -1,   0,   0, -1, -0.5, 0.5},
+        {0.5,    1,  1,  -2,  -2,  1,    1, 0.5},
+        {  0,    0,  0,   0,   0,  0,    0,   0}
+    };
+
     bool whiteTop = false; //to check weather the white side starts at top of board or is at base of board in layout
     if (state.Board.whiteHome == 0) {
         whiteTop = true; //white at top
@@ -142,84 +253,84 @@ double Custy_Crew::evaluateState(gameState state) {
             //get values for peice on board[i][j]
             switch (peice) {
             case 1:
-                peiceValue = 1;
+                peiceValue = PawnValue;
                 if(whiteTop)
                     locationValue = PawnPST[7 - i][j];
                 else
                     locationValue = PawnPST[i][j];
                 break;
             case -1:
-                peiceValue = -1;
+                peiceValue = -PawnValue;
                 if(whiteTop)
                     locationValue = -PawnPST[i][j];
                 else
                     locationValue = -PawnPST[7 - i][j];
                 break;
             case 2:
-                peiceValue = 3.2;
+                peiceValue = KnightValue;
                 if (whiteTop)
                     locationValue = KnightPST[7 - i][j];
                 else
                     locationValue = KnightPST[i][j];
                 break;
             case -2:
-                peiceValue = -3.2;
+                peiceValue = -KnightValue;
                 if (whiteTop)
                     locationValue = -KnightPST[i][j];
                 else
                     locationValue = -KnightPST[7 - i][j];
                 break;
             case 3:
-                peiceValue = 3.3;
+                peiceValue = BishopValue;
                 if (whiteTop)
                     locationValue = BishopPST[7 - i][j];
                 else
                     locationValue = BishopPST[i][j];
                 break;
             case -3:
-                peiceValue = -3.3;
+                peiceValue = -BishopValue;
                 if (whiteTop)
                     locationValue = -BishopPST[i][j];
                 else
                     locationValue = -BishopPST[7 - i][j];
                 break;
             case 4:
-                peiceValue = 5;
+                peiceValue = RookValue;
                 if (whiteTop)
                     locationValue = RookPST[7 - i][j];
                 else
                     locationValue = RookPST[i][j];
                 break;
             case -4:
-                peiceValue = -5;
+                peiceValue = -RookValue;
                 if (whiteTop)
                     locationValue = -RookPST[i][j];
                 else
                     locationValue = -RookPST[7 - i][j];
                 break;
             case 5:
-                peiceValue = 9;
+                peiceValue = QueenValue;
                 if (whiteTop)
                     locationValue = QueenPST[7 - i][j];
                 else
                     locationValue = QueenPST[i][j];
                 break;
             case -5:
-                peiceValue = -9;
+                peiceValue = -QueenValue;
                 if (whiteTop)
                     locationValue = -QueenPST[i][j];
                 else
                     locationValue = -QueenPST[7 - i][j];
                 break;
             case 6:
-                peiceValue = 0;
+                peiceValue = KingValue;
                 if (whiteTop)
                     locationValue = KingPST[7 - i][j];
                 else
                     locationValue = KingPST[i][j];
                 break;
             case -6:
-                peiceValue = 0;
+                peiceValue = -KingValue;
                 if (whiteTop)
                     locationValue = -KingPST[i][j];
                 else
@@ -235,10 +346,11 @@ double Custy_Crew::evaluateState(gameState state) {
 
         }
     }
+    
     countEvals++;
     return res;
     //decrease eval for doubled pawns, open files, pawn islands  by 0.25
-    //yea....no..too lazy and overworked i aint getting paid.
+    //yea....no..too lazy and overworked.. i aint getting paid.
 
     //theres also mobility, center control, connectivity, king safety, trapped peices, tempo, patterns,
     //and all that stuff,
