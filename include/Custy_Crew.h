@@ -4,6 +4,9 @@
 #include"ENUM.h"
 
 class Custy_Crew : public chessPlayer {
+private:
+    int movesMade = 0;
+    double totalTime = 0;
 public:
     Custy_Crew(Color playerColor = White);
     void decideMove(gameState* state, action* Move, int maxDepth);
@@ -13,11 +16,15 @@ public:
     double Mini(gameState state, action Move,action* bestMove, double alpha, double beta, int depth);
     double Max(gameState state, action Move,action* bestMove, double alpha, double beta, int depth);
 
+    //move ordering function
+    
+    void orderMoves(gameState state, action stateActions[], int moves);
 
+    
     //evaluation function
     double evaluateState(gameState state);
     double evaluateMove(gameState state, action Move);
-
+        
     
 };
 

@@ -1,12 +1,16 @@
 #include "..\include\Custy_Crew.h"
-#include<iostream>
-#include "..\include\\ENUM.h"
-#include<cstdlib>
+#include <iostream>
+#include <iomanip>
+#include "..\include\ENUM.h"
+#include <cstdlib>
+#include <chrono>
 
 using namespace std;
+using namespace chrono;
+
+#define SKIP_MOVES 0
 
 Custy_Crew::Custy_Crew(Color playerColor) :chessPlayer("Auto Player Name", playerColor) {
-
 
 }
 
@@ -14,7 +18,19 @@ Custy_Crew::Custy_Crew(Color playerColor) :chessPlayer("Auto Player Name", playe
 void Custy_Crew::MiniMaxSearch(gameState state, action* bestMove, int depth) {
     action Move;
     Move.fromCol = Move.fromRow = Move.toCol = Move.toRow = 0;
-    cout << Custy_Crew::Max(state, Move, bestMove, INT_MIN, INT_MAX, depth) << endl;
+
+    auto start = high_resolution_clock::now();
+    double eval = Custy_Crew::Max(state, Move, bestMove, INT_MIN, INT_MAX, depth);
+    auto stop = high_resolution_clock::now();
+    auto duration = duration_cast<milliseconds>(stop - start);
+    totalTime += duration.count();
+    cout << "Move: " << endl;
+    cout << "( " << Move.fromRow << "," << Move.fromCol << " )--"
+        << "( " << Move.toRow << "," << Move.toCol << " ) " << endl;
+    cout << "Evaluation: ";
+    cout << fixed << setprecision(2) << eval;
+    cout << " Posititions Evaluated: " << countEvals << " Duration: " << duration.count() << "ms" << endl;
+    cout << "Total Time: " << totalTime << endl;
     return;
 }
 
@@ -31,17 +47,30 @@ double Custy_Crew::Mini(gameState state, action Move,action* bestMove, double al
     }
 
     else if (depth == 0) {
+        //Just returning the evaluation at the last depth is pretty bad as in tactical positions, maybe the evry next move after the depth is disastrous.
+        //To overcome this, it is better to perform a quiescience search at terminals which looks at all possible dequieting moves (e.g checks and captures)
+        //This way, we can examine those moves and then return an appropriate evaluation. 
+        //Again, im too lazy  and i aint doin this so yea.. positional eval is all u get.
         return Custy_Crew::evaluateState(state);
     }
 
     else {
         action minMove;
         minMove.fromRow = minMove.fromCol = minMove.toRow = minMove.toCol = 0;
-        int moves = state.Actions.getActionCount();     
+        int moves = state.Actions.getActionCount();
+        
+        //lets order the moves first
+        action stateActions[300];
+        for (int i = 0; i < moves; i++) {
+            state.Actions.getAction(i, &(stateActions[i]));
+        }
+        if(movesMade > SKIP_MOVES)
+            orderMoves(state, stateActions, moves);
+
         double minEval = INT_MAX;
         for (int i = 0; i < moves; i++) {
-            action move;
-            state.Actions.getAction(i, &move);
+            action move = stateActions[i];
+            
             double eval = Custy_Crew::Max(state,move, bestMove,alpha, beta, depth - 1);
             if (minEval > eval) {
                 minEval = eval;
@@ -92,17 +121,27 @@ double Custy_Crew::Max(gameState state, action Move, action* bestMove, double al
             return -50;
     }
     
-    else if (depth == 0) {
+    else if (depth == 0) { //should do a queiescience search here for captures atleast..hmm..yea no
         return Custy_Crew::evaluateState(state);
     }
     else {
         action maxMove;
         maxMove.fromRow = maxMove.fromCol = maxMove.toRow = maxMove.toCol = 0;
         int moves = state.Actions.getActionCount();
+
+        //lets order the moves first
+        action stateActions[300];
+        for (int i = 0; i < moves; i++) {
+            state.Actions.getAction(i, &(stateActions[i]));
+        }
+
+        if (movesMade > SKIP_MOVES)
+            orderMoves(state, stateActions, moves);
+
         double maxEval = INT_MIN;
         for (int i = 0; i < moves; i++) {
-            action move;
-            state.Actions.getAction(i, &move);
+            action move = stateActions[i];
+            
             double eval = Custy_Crew::Mini(state, move, bestMove, alpha, beta, depth - 1);
             if (maxEval < eval) {
                 maxEval = eval;
@@ -139,10 +178,45 @@ double Custy_Crew::Max(gameState state, action Move, action* bestMove, double al
 }
 
 void Custy_Crew::decideMove(gameState* state, action* Move, int maxDepth) {
-
-    Custy_Crew::MiniMaxSearch(*state, Move, maxDepth);
-    cout << "Count Evals: "<<countEvals << endl;
+    Custy_Crew::MiniMaxSearch(*state, Move, maxDepth); 
+    movesMade++;
     return;
+}
+
+void Custy_Crew::orderMoves(gameState state, action stateActions[], int moves) {
+
+    //put capture moves first
+    int first = 0;
+    while (evaluateMove(state, stateActions[first]) > 0) {
+        first++;
+        if (first == moves)
+            return;
+    }
+    for (int i = first+1; i < moves; i++) {
+        if (evaluateMove(state, stateActions[i]) > 0) {
+            action tempMove = stateActions[i];
+            stateActions[i] = stateActions[first];
+            stateActions[first] = tempMove;
+            first++;
+        }
+    }
+  
+    //bubble sort those capture moves
+    bool swapped;
+    for (int i = 0; i < first - 1; i++) {
+        swapped = false;
+        for (int j = 0; j < first - i - 1; j++) {
+            if (evaluateMove(state, stateActions[j]) < evaluateMove(state, stateActions[j+1])) {
+                action tempMove = stateActions[j];
+                stateActions[j] = stateActions[j + 1];
+                stateActions[j + 1] = tempMove;
+                swapped = true;
+            }
+        }
+        if (swapped == false)
+            break;
+    }
+
 }
 
 double Custy_Crew::evaluateMove(gameState state, action Move) {
@@ -354,5 +428,6 @@ double Custy_Crew::evaluateState(gameState state) {
 
     //theres also mobility, center control, connectivity, king safety, trapped peices, tempo, patterns,
     //and all that stuff,
-    //i tried to incorporate it into location tables and thas all i can do 
+    //i tried to incorporate it into location tables and thas all i can do so yea..
 }
+
