@@ -25,8 +25,8 @@ void Custy_Crew::MiniMaxSearch(gameState state, action* bestMove, int depth) {
     auto duration = duration_cast<milliseconds>(stop - start);
     totalTime += duration.count();
     cout << "Move: " << endl;
-    cout << "( " << Move.fromRow << "," << Move.fromCol << " )--"
-        << "( " << Move.toRow << "," << Move.toCol << " ) " << endl;
+    cout << "( " << bestMove->fromRow << "," << bestMove->fromCol << " )--"
+        << "( " << bestMove->toRow << "," << bestMove->toCol << " ) " << endl;
     cout << "Evaluation: ";
     cout << fixed << setprecision(2) << eval;
     cout << " Posititions Evaluated: " << countEvals << " Duration: " << duration.count() << "ms" << endl;
