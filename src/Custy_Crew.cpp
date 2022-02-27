@@ -8,19 +8,29 @@
 using namespace std;
 using namespace chrono;
 
-#define SKIP_MOVES 0
+#define SKIP_MOVES 0 //its best to keep it zero as no dictionaries are provided for opening, thus ordering of moves is still beneficial as default testing depth was 6
 
 Custy_Crew::Custy_Crew(Color playerColor) :chessPlayer("Auto Player Name", playerColor) {
 
 }
 
+void Custy_Crew::MiniMaxSearch(gameState state, action* bestMove, int depth) { 
+    //included cout statements for debugging and development purposes.. 
+    //if not needed then remove everything from line 26 to 35 and line 23 as well.. 
+    //in case lines are not mentioned, remove everything after call to Max(...) or Mini(...) and one line before max.
 
-void Custy_Crew::MiniMaxSearch(gameState state, action* bestMove, int depth) {
     action Move;
     Move.fromCol = Move.fromRow = Move.toCol = Move.toRow = 0;
-
+    double eval;
     auto start = high_resolution_clock::now();
-    double eval = Custy_Crew::Max(state, Move, bestMove, INT_MIN, INT_MAX, depth);
+    
+    if (playerColor == 0) {
+        eval = Custy_Crew::Mini(state, Move, bestMove, INT_MIN, INT_MAX, depth);
+    }
+    else {
+        double eval = Custy_Crew::Max(state, Move, bestMove, INT_MIN, INT_MAX, depth);
+    }
+    
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<milliseconds>(stop - start);
     totalTime += duration.count();
@@ -31,6 +41,7 @@ void Custy_Crew::MiniMaxSearch(gameState state, action* bestMove, int depth) {
     cout << fixed << setprecision(2) << eval;
     cout << " Posititions Evaluated: " << countEvals << " Duration: " << duration.count() << "ms" << endl;
     cout << "Total Time: " << totalTime << endl;
+
     return;
 }
 
@@ -59,7 +70,7 @@ double Custy_Crew::Mini(gameState state, action Move,action* bestMove, double al
         minMove.fromRow = minMove.fromCol = minMove.toRow = minMove.toCol = 0;
         int moves = state.Actions.getActionCount();
         
-        //lets order the moves first
+        //lets order the moves first by creating a copy of the stateActions ... why? because im not allowed to create a getActionList in the other .cpp file.
         action stateActions[300];
         for (int i = 0; i < moves; i++) {
             state.Actions.getAction(i, &(stateActions[i]));
@@ -129,7 +140,7 @@ double Custy_Crew::Max(gameState state, action Move, action* bestMove, double al
         maxMove.fromRow = maxMove.fromCol = maxMove.toRow = maxMove.toCol = 0;
         int moves = state.Actions.getActionCount();
 
-        //lets order the moves first
+        //move ordering
         action stateActions[300];
         for (int i = 0; i < moves; i++) {
             state.Actions.getAction(i, &(stateActions[i]));
@@ -213,7 +224,7 @@ void Custy_Crew::orderMoves(gameState state, action stateActions[], int moves) {
                 swapped = true;
             }
         }
-        if (swapped == false)
+        if (swapped == false) //optimizing the bubble sort to stop when ordered
             break;
     }
 
@@ -224,11 +235,11 @@ double Custy_Crew::evaluateMove(gameState state, action Move) {
     //eval = captureValue[Victim][Attacker]
     double captureValue[7][7] = {
         {   0,   0,   0,   0,   0,   0,   0},
-        {   0, 1.5, 1.4, 1.3, 1.2, 1.1,   1},
-        {   0, 2.5, 2.4, 2.3, 2.2, 2.1,   2},
-        {   0, 3.5, 3.4, 3.3, 3.2, 3.1,   3},
-        {   0, 4.5, 4.4, 4.3, 4.2, 4.1,   4},
-        {   0, 5.5, 5.4, 5.3, 5.2, 5.1,   5},
+        {   0, 1.5, 1.4, 1.3, 1.2, 1.1, 1.0}, 
+        {   0, 2.5, 2.4, 2.3, 2.2, 2.1, 2.0},
+        {   0, 3.5, 3.4, 3.3, 3.2, 3.1, 3.0},
+        {   0, 4.5, 4.4, 4.3, 4.2, 4.1, 4.0},
+        {   0, 5.5, 5.4, 5.3, 5.2, 5.1, 5.0},
         {   0,   0,   0,   0,   0,   0,   0},
     };
 
@@ -328,8 +339,8 @@ double Custy_Crew::evaluateState(gameState state) {
             switch (peice) {
             case 1:
                 peiceValue = PawnValue;
-                if(whiteTop)
-                    locationValue = PawnPST[7 - i][j];
+                if(whiteTop) //the board orientation matters here
+                    locationValue = PawnPST[7 - i][j];  //there is no 7 - j as the current implementation is not mirrored rather only flipped. Traditionally it is mirrored.
                 else
                     locationValue = PawnPST[i][j];
                 break;
@@ -423,7 +434,7 @@ double Custy_Crew::evaluateState(gameState state) {
     
     countEvals++;
     return res;
-    //decrease eval for doubled pawns, open files, pawn islands  by 0.25
+    //change eval for doubled pawns, open files, pawn islands  by 0.25
     //yea....no..too lazy and overworked.. i aint getting paid.
 
     //theres also mobility, center control, connectivity, king safety, trapped peices, tempo, patterns,

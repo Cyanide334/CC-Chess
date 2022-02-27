@@ -11,7 +11,7 @@ class chessBoard{
         int whiteHome;
         int whiteMoveDirection;
 
-        chessBoard(int whiteHomeParameter = 0);
+        chessBoard(int whiteHomeParameter = 7);
         int initBoardFromFile(std::string fileName);
 };
 
