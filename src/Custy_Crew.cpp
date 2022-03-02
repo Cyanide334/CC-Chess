@@ -17,19 +17,13 @@ Custy_Crew::Custy_Crew(Color playerColor) :chessPlayer("Auto Player Name", playe
 void Custy_Crew::MiniMaxSearch(gameState state, action* bestMove, int depth) { 
     //included cout statements for debugging and development purposes.. 
     //if not needed then remove everything from line 26 to 35 and line 23 as well.. 
-    //in case lines are not mentioned, remove everything after call to Max(...) or Mini(...) and one line before max.
+    //in case lines are not mentioned, remove everything after call to Max(...) and one line before max.
 
     action Move;
     Move.fromCol = Move.fromRow = Move.toCol = Move.toRow = 0;
-    double eval;
     auto start = high_resolution_clock::now();
-    
-    if (playerColor == 0) {
-        eval = Custy_Crew::Mini(state, Move, bestMove, INT_MIN, INT_MAX, depth);
-    }
-    else {
-        double eval = Custy_Crew::Max(state, Move, bestMove, INT_MIN, INT_MAX, depth);
-    }
+
+    double eval = Custy_Crew::Max(state, Move, bestMove, INT_MIN, INT_MAX, depth);
     
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<milliseconds>(stop - start);
@@ -46,7 +40,9 @@ void Custy_Crew::MiniMaxSearch(gameState state, action* bestMove, int depth) {
 }
 
 double Custy_Crew::Mini(gameState state, action Move,action* bestMove, double alpha, double beta, int depth) {
-    state.applyMove(Move);
+    if (!(Move.fromCol == Move.toCol &&  Move.fromRow == Move.toRow)) { //this is a gaurd condition so it doesnt apply move the first time its called.
+        state.applyMove(Move);
+    }
     if (state.Actions.getActionCount() == 0) {
         //do stalemates, white loss and black loss constitute no evaluation seedha inf or -inf eval?
         if (state.kingUnderThreat(White))
@@ -91,11 +87,11 @@ double Custy_Crew::Mini(gameState state, action Move,action* bestMove, double al
                 minMove.toCol = move.toCol;
                 minMove.toRow = move.toRow;
             }
-            if (minEval == eval) {
+            else if (minEval == eval) {
                 //check which move is better in case of tie by seeing peice captures for now i.e. MVV_LVA
                 double a = evaluateMove(state, move);
                 double b = evaluateMove(state, minMove);
-                if (a < b) {
+                if (a < b && movesMade > 5 && movesMade < 25) {
                     minMove.fromCol = move.fromCol;
                     minMove.fromRow = move.fromRow;
                     minMove.toCol = move.toCol;
@@ -119,7 +115,7 @@ double Custy_Crew::Mini(gameState state, action Move,action* bestMove, double al
 }
 
 double Custy_Crew::Max(gameState state, action Move, action* bestMove, double alpha, double beta, int depth) {
-    if (!(Move.fromCol == Move.fromRow == Move.toCol == Move.toRow)) { //this is a gaurd condition so it doesnt apply move the first time its called.
+    if (!(Move.fromCol == Move.toCol && Move.fromRow == Move.toRow)) { //this is a gaurd condition so it doesnt apply move the first time its called.
         state.applyMove(Move);
     }
     if (state.Actions.getActionCount() == 0) {
@@ -162,11 +158,11 @@ double Custy_Crew::Max(gameState state, action Move, action* bestMove, double al
                 maxMove.toCol = move.toCol;
                 maxMove.toRow = move.toRow;
             }
-            if (maxEval == eval) {
+            else if (maxEval == eval) {
                 //check which move is better in case of tie by seeing peice captures for now
                 double a = evaluateMove(state, move);
                 double b = evaluateMove(state, maxMove);
-                if (a > b) {
+                if (a > b && movesMade > 5 && movesMade < 25) {
                     maxMove.fromCol = move.fromCol;
                     maxMove.fromRow = move.fromRow;
                     maxMove.toCol = move.toCol;
@@ -330,6 +326,15 @@ double Custy_Crew::evaluateState(gameState state) {
         whiteTop = true; //white at top
     }
     
+    //variables to aid in endgame
+    int whiteKingRow;
+    int whiteKingCol;
+    int blackKingRow;
+    int blackKingCol;
+
+    int materialCount = 0;
+
+    //loop and add material + location eval
     for (int i = 0; i < 8; i++) {
         for (int j = 0; j < 8; j++) {
             int peice = state.Board.board[i][j];
@@ -337,12 +342,16 @@ double Custy_Crew::evaluateState(gameState state) {
             double locationValue = 0;
             //get values for peice on board[i][j]
             switch (peice) {
+                //for pawns, decrease eval if they are doubled.. do this by checking the next row (there wont be pawns in the last row so no checks needed)
             case 1:
                 peiceValue = PawnValue;
                 if(whiteTop) //the board orientation matters here
                     locationValue = PawnPST[7 - i][j];  //there is no 7 - j as the current implementation is not mirrored rather only flipped. Traditionally it is mirrored.
                 else
                     locationValue = PawnPST[i][j];
+                //doubled pawns check
+                if (state.Board.board[i + 1][j] == 1)
+                    locationValue -= 0.25; //decrease eval for this loc coz i dont wanna make another variable
                 break;
             case -1:
                 peiceValue = -PawnValue;
@@ -350,6 +359,10 @@ double Custy_Crew::evaluateState(gameState state) {
                     locationValue = -PawnPST[i][j];
                 else
                     locationValue = -PawnPST[7 - i][j];
+
+                //doubled pawns check
+                if (state.Board.board[i + 1][j] == 1)
+                    locationValue += 0.25;
                 break;
             case 2:
                 peiceValue = KnightValue;
@@ -413,6 +426,10 @@ double Custy_Crew::evaluateState(gameState state) {
                     locationValue = KingPST[7 - i][j];
                 else
                     locationValue = KingPST[i][j];
+
+                whiteKingRow = i;
+                whiteKingCol = j;
+
                 break;
             case -6:
                 peiceValue = -KingValue;
@@ -420,6 +437,10 @@ double Custy_Crew::evaluateState(gameState state) {
                     locationValue = -KingPST[i][j];
                 else
                     locationValue = -KingPST[7 - i][j];
+
+                blackKingRow = i;
+                blackKingCol = j;
+
                 break;
             default:
                 peiceValue = 0;
@@ -428,17 +449,47 @@ double Custy_Crew::evaluateState(gameState state) {
       
             //add total peice value to evaluation
             res += (peiceValue + locationValue);
+            materialCount += abs(peiceValue);
 
         }
     }
     
     countEvals++;
-    return res;
+    
     //change eval for doubled pawns, open files, pawn islands  by 0.25
-    //yea....no..too lazy and overworked.. i aint getting paid.
+    //yea....no..too lazy and overworked.. i aint getting paid. 
+    //OH WOW deadline extended so Ta-Da i did doubled pawns in the switch case thingy above
 
     //theres also mobility, center control, connectivity, king safety, trapped peices, tempo, patterns,
     //and all that stuff,
     //i tried to incorporate it into location tables and thas all i can do so yea..
+    //even if the deadlines extended i got other stuff to worry bout so yea im not doing this..
+
+    //what i CAN do is try to make endgames better, i guess I can do this by a neat little trick whereby checkmating is easier if enemy king has less escape room
+    //So, enemy away from center good, also my own king aiding in the attack is better so own king going in for the attack also good.. (provided it doesnt get screwed over)
+    //all this will happen in end game so, lets assume end game is when total material count <= 20
+
+    
+    //if (materialCount <= 20) {
+    //    int dstFromCenterRow = max(3 - blackKingCol, blackKingCol - 4);
+    //    int dstFromCenterCol = max(3 - blackKingRow, blackKingRow - 4);
+    //    int blackDstFromCenter = dstFromCenterRow + dstFromCenterCol; // this will do for now, im not triangulating geometry and stuff here
+
+    //    //Note: dividing by material count means that as fewer materials are left, this evaluation will increase. I think this will help
+    //    res += blackDstFromCenter / materialCount; //reward for black king away from center
+
+    //    int whiteDstFromBlack = abs(blackKingCol - whiteKingCol) + abs(blackKingRow - whiteKingRow);
+
+    //    res += whiteDstFromBlack / materialCount; //reward for white king moving in to advance on black king
+    //}
+
+
+    int sign = 1; //to give apprpriate "max" result for either side (white or black)
+
+    if (playerColor == 0) {
+        sign = -1;
+    }
+    return res * sign;
+   
 }
 
