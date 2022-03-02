@@ -24,7 +24,6 @@ class actionList{
         bool resetActions();
         int getActionCount();
         void getAction(int actionIndex, action* Action);
-   
 };
 
 

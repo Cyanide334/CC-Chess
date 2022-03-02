@@ -89,13 +89,23 @@ double Custy_Crew::Mini(gameState state, action Move,action* bestMove, double al
             }
             else if (minEval == eval) {
                 //check which move is better in case of tie by seeing peice captures for now i.e. MVV_LVA
-                double a = evaluateMove(state, move);
-                double b = evaluateMove(state, minMove);
-                if (a < b && movesMade > 5 && movesMade < 25) {
-                    minMove.fromCol = move.fromCol;
-                    minMove.fromRow = move.fromRow;
-                    minMove.toCol = move.toCol;
-                    minMove.toRow = move.toRow;
+                double currMove = evaluateMove(state, move);
+                double prevMove = evaluateMove(state, minMove);
+                if (movesMade > 2 && movesMade < 25) { //if in attacking phase (where attacks are feasible)
+                    if (currMove > prevMove) {
+                        minMove.fromCol = move.fromCol;
+                        minMove.fromRow = move.fromRow;
+                        minMove.toCol = move.toCol;
+                        minMove.toRow = move.toRow;
+                    }
+                }
+                else {
+                    if (prevMove < 2 && prevMove > 0) {
+                        minMove.fromCol = move.fromCol;
+                        minMove.fromRow = move.fromRow;
+                        minMove.toCol = move.toCol;
+                        minMove.toRow = move.toRow;
+                    }
                 }
             }
             if (minEval < beta) {
@@ -150,6 +160,7 @@ double Custy_Crew::Max(gameState state, action Move, action* bestMove, double al
             action move = stateActions[i];
             
             double eval = Custy_Crew::Mini(state, move, bestMove, alpha, beta, depth - 1);
+            
             if (maxEval < eval) {
                 maxEval = eval;
                 //maxMove = move;
@@ -158,15 +169,26 @@ double Custy_Crew::Max(gameState state, action Move, action* bestMove, double al
                 maxMove.toCol = move.toCol;
                 maxMove.toRow = move.toRow;
             }
+            
             else if (maxEval == eval) {
                 //check which move is better in case of tie by seeing peice captures for now
-                double a = evaluateMove(state, move);
-                double b = evaluateMove(state, maxMove);
-                if (a > b && movesMade > 5 && movesMade < 25) {
-                    maxMove.fromCol = move.fromCol;
-                    maxMove.fromRow = move.fromRow;
-                    maxMove.toCol = move.toCol;
-                    maxMove.toRow = move.toRow;
+                double currMove = evaluateMove(state, move);
+                double prevMove = evaluateMove(state, maxMove);
+                if (movesMade > 2 && movesMade < 25) { //if in attacking phase (where attacks are feasible)
+                    if (currMove > prevMove){
+                        maxMove.fromCol = move.fromCol;
+                        maxMove.fromRow = move.fromRow;
+                        maxMove.toCol = move.toCol;
+                        maxMove.toRow = move.toRow;
+                    }
+                }
+                else {
+                    if (prevMove < 2 && prevMove > 0) {
+                        maxMove.fromCol = move.fromCol;
+                        maxMove.fromRow = move.fromRow;
+                        maxMove.toCol = move.toCol;
+                        maxMove.toRow = move.toRow;
+                    }
                 }
             }
             if (maxEval > alpha) {
@@ -351,7 +373,7 @@ double Custy_Crew::evaluateState(gameState state) {
                     locationValue = PawnPST[i][j];
                 //doubled pawns check
                 if (state.Board.board[i + 1][j] == 1)
-                    locationValue -= 0.25; //decrease eval for this loc coz i dont wanna make another variable
+                    locationValue -= 0.2; //decrease eval for this loc coz i dont wanna make another variable
                 break;
             case -1:
                 peiceValue = -PawnValue;
@@ -362,7 +384,7 @@ double Custy_Crew::evaluateState(gameState state) {
 
                 //doubled pawns check
                 if (state.Board.board[i + 1][j] == 1)
-                    locationValue += 0.25;
+                    locationValue += 0.2;
                 break;
             case 2:
                 peiceValue = KnightValue;
@@ -470,18 +492,18 @@ double Custy_Crew::evaluateState(gameState state) {
     //all this will happen in end game so, lets assume end game is when total material count <= 20
 
     
-    //if (materialCount <= 20) {
-    //    int dstFromCenterRow = max(3 - blackKingCol, blackKingCol - 4);
-    //    int dstFromCenterCol = max(3 - blackKingRow, blackKingRow - 4);
-    //    int blackDstFromCenter = dstFromCenterRow + dstFromCenterCol; // this will do for now, im not triangulating geometry and stuff here
+    if (materialCount <= 20) {
+        int dstFromCenterRow = max(3 - blackKingCol, blackKingCol - 4);
+        int dstFromCenterCol = max(3 - blackKingRow, blackKingRow - 4);
+        int blackDstFromCenter = dstFromCenterRow + dstFromCenterCol; // this will do for now, im not triangulating geometry and stuff here
 
-    //    //Note: dividing by material count means that as fewer materials are left, this evaluation will increase. I think this will help
-    //    res += blackDstFromCenter / materialCount; //reward for black king away from center
+        //Note: dividing by material count means that as fewer materials are left, this evaluation will increase. I think this will help
+        res += blackDstFromCenter / materialCount; //reward for black king away from center
 
-    //    int whiteDstFromBlack = abs(blackKingCol - whiteKingCol) + abs(blackKingRow - whiteKingRow);
+        int whiteDstFromBlack = abs(blackKingCol - whiteKingCol) + abs(blackKingRow - whiteKingRow);
 
-    //    res += whiteDstFromBlack / materialCount; //reward for white king moving in to advance on black king
-    //}
+        res += whiteDstFromBlack / materialCount; //reward for white king moving in to advance on black king
+    }
 
 
     int sign = 1; //to give apprpriate "max" result for either side (white or black)
