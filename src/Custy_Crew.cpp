@@ -14,7 +14,7 @@ Custy_Crew::Custy_Crew(Color playerColor) :chessPlayer("Auto Player Name", playe
 
 }
 
-void Custy_Crew::MiniMaxSearch(gameState state, action* bestMove, int depth) { 
+void Custy_Crew::MiniMaxSearch(gameState state, action* bestMove, int depth) {
     //included cout statements for debugging and development purposes.. 
     //if not needed then remove everything from line 26 to 35 and line 23 as well.. 
     //in case lines are not mentioned, remove everything after call to Max(...) and one line before max.
@@ -24,7 +24,7 @@ void Custy_Crew::MiniMaxSearch(gameState state, action* bestMove, int depth) {
     auto start = high_resolution_clock::now();
 
     double eval = Custy_Crew::Max(state, Move, bestMove, INT_MIN, INT_MAX, depth);
-    
+
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<milliseconds>(stop - start);
     totalTime += duration.count();
@@ -39,21 +39,12 @@ void Custy_Crew::MiniMaxSearch(gameState state, action* bestMove, int depth) {
     return;
 }
 
-double Custy_Crew::Mini(gameState state, action Move,action* bestMove, double alpha, double beta, int depth) {
-    if (!(Move.fromCol == Move.toCol &&  Move.fromRow == Move.toRow)) { //this is a gaurd condition so it doesnt apply move the first time its called.
+double Custy_Crew::Mini(gameState state, action Move, action* bestMove, double alpha, double beta, int depth) {
+    if (!(Move.fromCol == Move.toCol && Move.fromRow == Move.toRow)) { //this is a gaurd condition so it doesnt apply move the first time its called.
         state.applyMove(Move);
     }
-    if (state.Actions.getActionCount() == 0) {
-        //do stalemates, white loss and black loss constitute no evaluation seedha inf or -inf eval?
-        if (state.kingUnderThreat(White))
-            return -100;
-        else if (state.kingUnderThreat(Black))
-            return 100;
-        else
-            return -50;
-    }
 
-    else if (depth == 0) {
+    if (state.Actions.getActionCount() == 0 || depth == 0) {
         //Just returning the evaluation at the last depth is pretty bad as in tactical positions, maybe the evry next move after the depth is disastrous.
         //To overcome this, it is better to perform a quiescience search at terminals which looks at all possible dequieting moves (e.g checks and captures)
         //This way, we can examine those moves and then return an appropriate evaluation. 
@@ -65,20 +56,20 @@ double Custy_Crew::Mini(gameState state, action Move,action* bestMove, double al
         action minMove;
         minMove.fromRow = minMove.fromCol = minMove.toRow = minMove.toCol = 0;
         int moves = state.Actions.getActionCount();
-        
+
         //lets order the moves first by creating a copy of the stateActions ... why? because im not allowed to create a getActionList in the other .cpp file.
         action stateActions[300];
         for (int i = 0; i < moves; i++) {
             state.Actions.getAction(i, &(stateActions[i]));
         }
-        if(movesMade > SKIP_MOVES)
+        if (movesMade > SKIP_MOVES)
             orderMoves(state, stateActions, moves);
 
         double minEval = INT_MAX;
         for (int i = 0; i < moves; i++) {
             action move = stateActions[i];
-            
-            double eval = Custy_Crew::Max(state,move, bestMove,alpha, beta, depth - 1);
+
+            double eval = Custy_Crew::Max(state, move, bestMove, alpha, beta, depth - 1);
             if (minEval > eval) {
                 minEval = eval;
                 //minMove = move;
@@ -87,12 +78,12 @@ double Custy_Crew::Mini(gameState state, action Move,action* bestMove, double al
                 minMove.toCol = move.toCol;
                 minMove.toRow = move.toRow;
             }
-            else if (minEval == eval) {
+            else if (minEval == eval || abs(minEval - eval) < 0.01) {
                 //check which move is better in case of tie by seeing peice captures for now i.e. MVV_LVA
                 double currMove = evaluateMove(state, move);
                 double prevMove = evaluateMove(state, minMove);
-                if (movesMade > 2 && movesMade < 25) { //if in attacking phase (where attacks are feasible)
-                    if (currMove > prevMove) {
+                if (movesMade > 3 && movesMade < 25) { //if in attacking phase (where attacks are feasible)
+                    if (currMove < prevMove) {
                         minMove.fromCol = move.fromCol;
                         minMove.fromRow = move.fromRow;
                         minMove.toCol = move.toCol;
@@ -100,7 +91,7 @@ double Custy_Crew::Mini(gameState state, action Move,action* bestMove, double al
                     }
                 }
                 else {
-                    if (prevMove < 2 && prevMove > 0) {
+                    if (prevMove < 1.5 && currMove > 1.5) {
                         minMove.fromCol = move.fromCol;
                         minMove.fromRow = move.fromRow;
                         minMove.toCol = move.toCol;
@@ -109,12 +100,12 @@ double Custy_Crew::Mini(gameState state, action Move,action* bestMove, double al
                 }
             }
             if (minEval < beta) {
-                beta = minEval;  
+                beta = minEval;
             }
             if (alpha >= beta) {
                 break;
             }
-           
+
         }
         bestMove->fromCol = minMove.fromCol;
         bestMove->fromRow = minMove.fromRow;
@@ -128,17 +119,7 @@ double Custy_Crew::Max(gameState state, action Move, action* bestMove, double al
     if (!(Move.fromCol == Move.toCol && Move.fromRow == Move.toRow)) { //this is a gaurd condition so it doesnt apply move the first time its called.
         state.applyMove(Move);
     }
-    if (state.Actions.getActionCount() == 0) {
-        //do stalemates, white loss and black loss constitute no evaluation seedha inf or -inf eval? Probably so hell yea.
-        if (state.kingUnderThreat(White))
-            return -100;
-        else if (state.kingUnderThreat(Black))
-            return 100;
-        else
-            return -50;
-    }
-    
-    else if (depth == 0) { //should do a queiescience search here for captures atleast..hmm..yea no
+    if (state.Actions.getActionCount() == 0 || depth == 0) { //should do a queiescience search here for captures atleast..hmm..yea no
         return Custy_Crew::evaluateState(state);
     }
     else {
@@ -158,9 +139,8 @@ double Custy_Crew::Max(gameState state, action Move, action* bestMove, double al
         double maxEval = INT_MIN;
         for (int i = 0; i < moves; i++) {
             action move = stateActions[i];
-            
             double eval = Custy_Crew::Mini(state, move, bestMove, alpha, beta, depth - 1);
-            
+
             if (maxEval < eval) {
                 maxEval = eval;
                 //maxMove = move;
@@ -169,13 +149,13 @@ double Custy_Crew::Max(gameState state, action Move, action* bestMove, double al
                 maxMove.toCol = move.toCol;
                 maxMove.toRow = move.toRow;
             }
-            
-            else if (maxEval == eval) {
+
+            else if (maxEval == eval || abs(maxEval - eval) < 0.01) {
                 //check which move is better in case of tie by seeing peice captures for now
                 double currMove = evaluateMove(state, move);
                 double prevMove = evaluateMove(state, maxMove);
-                if (movesMade > 2 && movesMade < 25) { //if in attacking phase (where attacks are feasible)
-                    if (currMove > prevMove){
+                if (movesMade > 3 && movesMade < 25) { //if in attacking phase (where attacks are feasible)
+                    if (currMove > prevMove) {
                         maxMove.fromCol = move.fromCol;
                         maxMove.fromRow = move.fromRow;
                         maxMove.toCol = move.toCol;
@@ -183,7 +163,7 @@ double Custy_Crew::Max(gameState state, action Move, action* bestMove, double al
                     }
                 }
                 else {
-                    if (prevMove < 2 && prevMove > 0) {
+                    if (prevMove < 1.5 && currMove > 1.5) {
                         maxMove.fromCol = move.fromCol;
                         maxMove.fromRow = move.fromRow;
                         maxMove.toCol = move.toCol;
@@ -192,7 +172,7 @@ double Custy_Crew::Max(gameState state, action Move, action* bestMove, double al
                 }
             }
             if (maxEval > alpha) {
-                alpha = maxEval;     
+                alpha = maxEval;
             }
             if (alpha >= beta) {
                 break;
@@ -207,21 +187,21 @@ double Custy_Crew::Max(gameState state, action Move, action* bestMove, double al
 }
 
 void Custy_Crew::decideMove(gameState* state, action* Move, int maxDepth) {
-    Custy_Crew::MiniMaxSearch(*state, Move, maxDepth); 
+    Custy_Crew::MiniMaxSearch(*state, Move, maxDepth);
     movesMade++;
     return;
 }
 
-void Custy_Crew::orderMoves(gameState state, action stateActions[], int moves) {
+int Custy_Crew::orderMoves(gameState state, action stateActions[], int moves) {
 
     //put capture moves first
     int first = 0;
     while (evaluateMove(state, stateActions[first]) > 0) {
         first++;
         if (first == moves)
-            return;
+            return 0;
     }
-    for (int i = first+1; i < moves; i++) {
+    for (int i = first + 1; i < moves; i++) {
         if (evaluateMove(state, stateActions[i]) > 0) {
             action tempMove = stateActions[i];
             stateActions[i] = stateActions[first];
@@ -229,13 +209,13 @@ void Custy_Crew::orderMoves(gameState state, action stateActions[], int moves) {
             first++;
         }
     }
-  
+
     //bubble sort those capture moves
     bool swapped;
     for (int i = 0; i < first - 1; i++) {
         swapped = false;
         for (int j = 0; j < first - i - 1; j++) {
-            if (evaluateMove(state, stateActions[j]) < evaluateMove(state, stateActions[j+1])) {
+            if (evaluateMove(state, stateActions[j]) < evaluateMove(state, stateActions[j + 1])) {
                 action tempMove = stateActions[j];
                 stateActions[j] = stateActions[j + 1];
                 stateActions[j + 1] = tempMove;
@@ -245,7 +225,7 @@ void Custy_Crew::orderMoves(gameState state, action stateActions[], int moves) {
         if (swapped == false) //optimizing the bubble sort to stop when ordered
             break;
     }
-
+    return moves - first;
 }
 
 double Custy_Crew::evaluateMove(gameState state, action Move) {
@@ -253,7 +233,7 @@ double Custy_Crew::evaluateMove(gameState state, action Move) {
     //eval = captureValue[Victim][Attacker]
     double captureValue[7][7] = {
         {   0,   0,   0,   0,   0,   0,   0},
-        {   0, 1.5, 1.4, 1.3, 1.2, 1.1, 1.0}, 
+        {   0, 1.5, 1.4, 1.3, 1.2, 1.1, 1.0},
         {   0, 2.5, 2.4, 2.3, 2.2, 2.1, 2.0},
         {   0, 3.5, 3.4, 3.3, 3.2, 3.1, 3.0},
         {   0, 4.5, 4.4, 4.3, 4.2, 4.1, 4.0},
@@ -267,10 +247,39 @@ double Custy_Crew::evaluateMove(gameState state, action Move) {
     return captureValue[Victim][Attacker];
 }
 
+
 double Custy_Crew::evaluateState(gameState state) {
+    
+    
     double res = 0; //for now it is the sum of all peice+location values
     
-    
+    //check for checkmates or stalemates or draws
+
+    if (state.Actions.getActionCount() == 0) {
+        if (state.kingUnderThreat(Black))
+            return 50;
+        else if (state.kingUnderThreat(White))
+            return -50;
+        else
+           return -25;
+    } 
+
+    //otherwise decrease eval if tempo is with opponent. For now define tempo as "opponents turn where he can take your peices"
+    else {
+        if (state.getPlayer() == White) {
+            res = 0;
+        }
+        else {
+            action stateActions[300];
+            for (int i = 0; i < state.Actions.getActionCount(); i++) {
+                state.Actions.getAction(i, &(stateActions[i]));
+            }
+            int captures = orderMoves(state, stateActions, state.Actions.getActionCount());
+            res = -captures/10;
+        }
+    }
+
+
     //Peice values are assigned as:
     double
         PawnValue = 1.00,
@@ -347,7 +356,7 @@ double Custy_Crew::evaluateState(gameState state) {
     if (state.Board.whiteHome == 0) {
         whiteTop = true; //white at top
     }
-    
+
     //variables to aid in endgame
     int whiteKingRow;
     int whiteKingCol;
@@ -367,24 +376,24 @@ double Custy_Crew::evaluateState(gameState state) {
                 //for pawns, decrease eval if they are doubled.. do this by checking the next row (there wont be pawns in the last row so no checks needed)
             case 1:
                 peiceValue = PawnValue;
-                if(whiteTop) //the board orientation matters here
+                if (whiteTop) //the board orientation matters here
                     locationValue = PawnPST[7 - i][j];  //there is no 7 - j as the current implementation is not mirrored rather only flipped. Traditionally it is mirrored.
                 else
                     locationValue = PawnPST[i][j];
                 //doubled pawns check
                 if (state.Board.board[i + 1][j] == 1)
-                    locationValue -= 0.2; //decrease eval for this loc coz i dont wanna make another variable
+                    locationValue -= 0.10; //decrease eval for this loc coz i dont wanna make another variable
                 break;
             case -1:
                 peiceValue = -PawnValue;
-                if(whiteTop)
+                if (whiteTop)
                     locationValue = -PawnPST[i][j];
                 else
                     locationValue = -PawnPST[7 - i][j];
 
                 //doubled pawns check
                 if (state.Board.board[i + 1][j] == 1)
-                    locationValue += 0.2;
+                    locationValue += 0.10;
                 break;
             case 2:
                 peiceValue = KnightValue;
@@ -468,16 +477,16 @@ double Custy_Crew::evaluateState(gameState state) {
                 peiceValue = 0;
                 locationValue = 0;
             }
-      
+
             //add total peice value to evaluation
             res += (peiceValue + locationValue);
             materialCount += abs(peiceValue);
 
         }
     }
-    
+
     countEvals++;
-    
+
     //change eval for doubled pawns, open files, pawn islands  by 0.25
     //yea....no..too lazy and overworked.. i aint getting paid. 
     //OH WOW deadline extended so Ta-Da i did doubled pawns in the switch case thingy above
@@ -491,8 +500,7 @@ double Custy_Crew::evaluateState(gameState state) {
     //So, enemy away from center good, also my own king aiding in the attack is better so own king going in for the attack also good.. (provided it doesnt get screwed over)
     //all this will happen in end game so, lets assume end game is when total material count <= 20
 
-    
-    if (materialCount <= 20) {
+    if (materialCount <= 40) {
         int dstFromCenterRow = max(3 - blackKingCol, blackKingCol - 4);
         int dstFromCenterCol = max(3 - blackKingRow, blackKingRow - 4);
         int blackDstFromCenter = dstFromCenterRow + dstFromCenterCol; // this will do for now, im not triangulating geometry and stuff here
@@ -505,13 +513,11 @@ double Custy_Crew::evaluateState(gameState state) {
         res += whiteDstFromBlack / materialCount; //reward for white king moving in to advance on black king
     }
 
-
     int sign = 1; //to give apprpriate "max" result for either side (white or black)
 
-    if (playerColor == 0) {
+    if (playerColor == Black) {
         sign = -1;
     }
     return res * sign;
-   
-}
 
+}

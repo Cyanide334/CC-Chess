@@ -16,15 +16,14 @@ public:
     double Mini(gameState state, action Move,action* bestMove, double alpha, double beta, int depth);
     double Max(gameState state, action Move,action* bestMove, double alpha, double beta, int depth);
 
-    //move ordering function
+    //move ordering function, returns total capture moves available
     
-    void orderMoves(gameState state, action stateActions[], int moves);
+    int orderMoves(gameState state, action stateActions[], int moves);
 
     
     //evaluation function
     double evaluateState(gameState state);
     double evaluateMove(gameState state, action Move);
-        
     
 };
 
