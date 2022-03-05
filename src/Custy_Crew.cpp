@@ -8,7 +8,8 @@
 using namespace std;
 using namespace chrono;
 
-#define SKIP_MOVES 0 //its best to keep it zero as no dictionaries are provided for opening, thus ordering of moves is still beneficial as default testing depth was 6
+#define ENDGAME_MATERIAL 30 //
+#define EVAL_ERROR 0.01
 
 Custy_Crew::Custy_Crew(Color playerColor) :chessPlayer("Auto Player Name", playerColor) {
 
@@ -62,7 +63,7 @@ double Custy_Crew::Mini(gameState state, action Move, action* bestMove, double a
         for (int i = 0; i < moves; i++) {
             state.Actions.getAction(i, &(stateActions[i]));
         }
-        if (movesMade > SKIP_MOVES)
+        if (movesMade > 0)//no need to order on first move
             orderMoves(state, stateActions, moves);
 
         double minEval = INT_MAX;
@@ -78,7 +79,7 @@ double Custy_Crew::Mini(gameState state, action Move, action* bestMove, double a
                 minMove.toCol = move.toCol;
                 minMove.toRow = move.toRow;
             }
-            else if (minEval == eval || abs(minEval - eval) < 0.01) {
+            else if (minEval == eval || abs(minEval - eval) < EVAL_ERROR) {
                 //check which move is better in case of tie by seeing peice captures for now i.e. MVV_LVA
                 double currMove = evaluateMove(state, move);
                 double prevMove = evaluateMove(state, minMove);
@@ -133,7 +134,7 @@ double Custy_Crew::Max(gameState state, action Move, action* bestMove, double al
             state.Actions.getAction(i, &(stateActions[i]));
         }
 
-        if (movesMade > SKIP_MOVES)
+        if (movesMade > 0)
             orderMoves(state, stateActions, moves);
 
         double maxEval = INT_MIN;
@@ -150,7 +151,7 @@ double Custy_Crew::Max(gameState state, action Move, action* bestMove, double al
                 maxMove.toRow = move.toRow;
             }
 
-            else if (maxEval == eval || abs(maxEval - eval) < 0.01) {
+            else if (maxEval == eval || abs(maxEval - eval) < EVAL_ERROR) {
                 //check which move is better in case of tie by seeing peice captures for now
                 double currMove = evaluateMove(state, move);
                 double prevMove = evaluateMove(state, maxMove);
@@ -275,7 +276,10 @@ double Custy_Crew::evaluateState(gameState state) {
                 state.Actions.getAction(i, &(stateActions[i]));
             }
             int captures = orderMoves(state, stateActions, state.Actions.getActionCount());
-            res = -captures/10;
+            for (int i = 0; i < captures; i++) {
+                res -= evaluateMove(state, stateActions[i]) / 10;
+            }
+            
         }
     }
 
@@ -363,7 +367,7 @@ double Custy_Crew::evaluateState(gameState state) {
     int blackKingRow;
     int blackKingCol;
 
-    int materialCount = 0;
+    double materialCount = 0;
 
     //loop and add material + location eval
     for (int i = 0; i < 8; i++) {
@@ -500,7 +504,7 @@ double Custy_Crew::evaluateState(gameState state) {
     //So, enemy away from center good, also my own king aiding in the attack is better so own king going in for the attack also good.. (provided it doesnt get screwed over)
     //all this will happen in end game so, lets assume end game is when total material count <= 20
 
-    if (materialCount <= 40) {
+    if (materialCount <= ENDGAME_MATERIAL) {
         int dstFromCenterRow = max(3 - blackKingCol, blackKingCol - 4);
         int dstFromCenterCol = max(3 - blackKingRow, blackKingRow - 4);
         int blackDstFromCenter = dstFromCenterRow + dstFromCenterCol; // this will do for now, im not triangulating geometry and stuff here
